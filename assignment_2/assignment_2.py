@@ -2,9 +2,9 @@ from random import random, choice
 
 # Dataset for breast cancer patients
 recurrence = [
-    {'Menop.=ge40': True, 'Menop.=lt40': False, 'Menop.=premeno': False, 'Inv-nodes=0-2': False, 'Inv-nodes=3-5': True, 'Inv-nodes=6-8': False, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False},
-    {'Menop.=ge40': True, 'Menop.=lt40': False, 'Menop.=premeno': False, 'Inv-nodes=0-2': False, 'Inv-nodes=3-5': False, 'Inv-nodes=6-8': True, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False},
-    {'Menop.=ge40': False, 'Menop.=lt40': False, 'Menop.=premeno': True, 'Inv-nodes=0-2': True, 'Inv-nodes=3-5': False, 'Inv-nodes=6-8': False, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False}
+    {'Menopause=ge40': True, 'Menopause=lt40': False, 'Menopause=premeno': False, 'Inv-nodes=0-2': False, 'Inv-nodes=3-5': True, 'Inv-nodes=6-8': False, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False},
+    {'Menopause=ge40': True, 'Menopause=lt40': False, 'Menopause=premeno': False, 'Inv-nodes=0-2': False, 'Inv-nodes=3-5': False, 'Inv-nodes=6-8': True, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False},
+    {'Menopause=ge40': False, 'Menopause=lt40': False, 'Menopause=premeno': True, 'Inv-nodes=0-2': True, 'Inv-nodes=3-5': False, 'Inv-nodes=6-8': False, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False}
 ]
 
 
@@ -18,8 +18,8 @@ def evaluate_condition(observation, condition):
     total = 0
     
     # Rule R1: If Deg-malig = 3 and Menop. != lt40, then recurrence
-    if 'Deg-malig=3' in condition and 'NOT Menop.=lt40' in condition:
-        if observation['Deg-malig=3'] == True and observation['Menop.=lt40'] != True:
+    if 'Deg-malig=3' in condition and 'NOT Menopause=lt40' in condition:
+        if observation['Deg-malig=3'] == True and observation['Menopause=lt40'] != True:
             total += 1
     
     # Rule R2: If Deg-malig = 3, then recurrence
@@ -86,10 +86,10 @@ class Memory:
             self.memory[literal] += 1
 
 initial_memory = {
-    'Menop.=ge40': 5, 'Menop.=lt40': 5, 'Menop.=premeno': 5,
+    'Menopause=ge40': 5, 'Menopause=lt40': 5, 'Menopause=premeno': 5,
     'Inv-nodes=0-2': 5, 'Inv-nodes=3-5': 5, 'Inv-nodes=6-8': 5,
     'Deg-malig=1': 5, 'Deg-malig=2': 5, 'Deg-malig=3': 5,
-    'NOT Menop.=ge40': 5, 'NOT Menop.=lt40': 5, 'NOT Menop.=premeno': 5,
+    'NOT Menopause=ge40': 5, 'NOT Menopause=lt40': 5, 'NOT Menopause=premeno': 5,
     'NOT Inv-nodes=0-2': 5, 'NOT Inv-nodes=3-5': 5, 'NOT Inv-nodes=6-8': 5,
     'NOT Deg-malig=1': 5, 'NOT Deg-malig=2': 5, 'NOT Deg-malig=3': 5
 }
@@ -110,7 +110,7 @@ def type_i_feedback(observation, memory):
     for literal in remaining_literals:
         memory.forget(literal)
 
-for i in range(100):
+for i in range(10000):
     observation_id = choice([0,1,2])
     type_i_feedback(recurrence[observation_id], recurrence_rule_memory)
 
