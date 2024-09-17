@@ -1,0 +1,7 @@
+#,Menop.,Inv-nodes,Deg-malig,Recur.,R1,R2,R3,v
+1,ge40,3-5,3,yes,True,True,False,+2
+2,lt40,0-2,3,no,False,True,True,+0
+3,ge40,6-8,3,yes,True,True,False,+2
+4,ge40,0-2,2,no,False,False,True,-1
+5,premeno,0-2,3,yes,True,True,True,+1
+6,premeno,0-2,1,no,False,False,True,-1
