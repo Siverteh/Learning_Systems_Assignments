@@ -1,19 +1,10 @@
+import matplotlib
+matplotlib.use('TkAgg')  # For non-GUI backends in scripts
+import matplotlib.pyplot as plt
+import numpy as np
 from random import random, choice
-
-# Dataset for breast cancer patients
-recurrences = [
-    {'Menopause=ge40': True, 'Menopause=lt40': False, 'Menopause=premeno': False, 'Inv-nodes=0-2': False, 'Inv-nodes=3-5': True, 'Inv-nodes=6-8': False, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False},
-    {'Menopause=ge40': True, 'Menopause=lt40': False, 'Menopause=premeno': False, 'Inv-nodes=0-2': False, 'Inv-nodes=3-5': False, 'Inv-nodes=6-8': True, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False},
-    {'Menopause=ge40': False, 'Menopause=lt40': False, 'Menopause=premeno': True, 'Inv-nodes=0-2': True, 'Inv-nodes=3-5': False, 'Inv-nodes=6-8': False, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False},
-    {'Menopause=ge40': False, 'Menopause=lt40': True, 'Menopause=premeno': False, 'Inv-nodes=0-2': True, 'Inv-nodes=3-5': False, 'Inv-nodes=6-8': False, 'Deg-malig=3': True, 'Deg-malig=1': False, 'Deg-malig=2': False},
-]
-
-
-non_recurrences = [
-    
-    {'Menopause=ge40': True, 'Menopause=lt40': False, 'Menopause=premeno': False, 'Inv-nodes=0-2': True, 'Inv-nodes=3-5': False, 'Inv-nodes=6-8': False, 'Deg-malig=3': False, 'Deg-malig=1': False, 'Deg-malig=2': True},
-    {'Menopause=ge40': False, 'Menopause=lt40': False, 'Menopause=premeno': True, 'Inv-nodes=0-2': True, 'Inv-nodes=3-5': False, 'Inv-nodes=6-8': False, 'Deg-malig=3': False, 'Deg-malig=1': True, 'Deg-malig=2': False},
-]
+from dataset import recurrences, non_recurrences, initial_memory, R1, R2, R3
+import matplotlib.animation as animation
 
 def evaluate_condition(observation, condition):
     # Standard feature evaluation
@@ -33,44 +24,19 @@ def evaluate_condition(observation, condition):
         return True
     else:
         return False  # Indicating a feature mismatch or non-recurrence
-    
-# Define your rules R1, R2, R3
-R1 = {'Deg-malig=3', 'NOT Menopause=lt40'}  # Example rule
-R2 = {'Deg-malig=3'}  # Example rule
-R3 = {'Inv-nodes=0-2'}  # Example rule
 
-# Combine both recurrences and non-recurrences into a single list
-all_patients = [
-    {'data': patient, 'label': 'Recurrence'} for patient in recurrences] + [
-    {'data': patient, 'label': 'Non-Recurrence'} for patient in non_recurrences
-]
-
-# Loop through all patients, both recurrences and non-recurrences
-for patient_info in all_patients:
-    patient = patient_info['data']
-    true_label = patient_info['label']
-    
-    count = 0
-
-    # Evaluate rules
-    if evaluate_condition(patient, R1):
-        count += 1
-
-    if evaluate_condition(patient, R2):
-        count += 1
-
-    if evaluate_condition(patient, R3):
-        count -= 1
-    
-    # Classification based on the count
-    classification = "Recurrence" if count >= 0 else "Non-Recurrence"
-    
-    # Print the patient data and classification result
-    print(f"Patient: {patient}")
-    print(f"True Label: {true_label}")
-    print(f"Classified as: {classification}\n")
-
-
+def manual_classify(patients: list):
+    for patient in patients:
+        count = 0
+        if evaluate_condition(patient, R1):
+            count += 1
+        if evaluate_condition(patient, R2):
+            count += 1
+        if evaluate_condition(patient, R3):
+            count -= 1
+        classification = "Recurrence" if count > 0 else "Non-Recurrence"
+        print(f"Patient: {patient}")
+        print(f"Classified as: {classification}\n")
 
 class Memory:
     def __init__(self, forget_value, memorize_value, memory):
@@ -103,15 +69,6 @@ class Memory:
         if self.memory[literal] < 10:
             self.memory[literal] += 1
 
-initial_memory = {
-    'Menopause=ge40': 5, 'Menopause=lt40': 5, 'Menopause=premeno': 5,
-    'Inv-nodes=0-2': 5, 'Inv-nodes=3-5': 5, 'Inv-nodes=6-8': 5,
-    'Deg-malig=1': 5, 'Deg-malig=2': 5, 'Deg-malig=3': 5,
-    'NOT Menopause=ge40': 5, 'NOT Menopause=lt40': 5, 'NOT Menopause=premeno': 5,
-    'NOT Inv-nodes=0-2': 5, 'NOT Inv-nodes=3-5': 5, 'NOT Inv-nodes=6-8': 5,
-    'NOT Deg-malig=1': 5, 'NOT Deg-malig=2': 5, 'NOT Deg-malig=3': 5
-}
-
 recurrence_rule_memory = Memory(0.8, 0.2, initial_memory.copy())
 non_recurrence_rule_memory = Memory(0.8, 0.2, initial_memory.copy())
 
@@ -138,41 +95,61 @@ def type_ii_feedback(observation, memory):
             elif observation[feature] == True:
                 memory.memorize_always('NOT ' + feature)
 
-for i in range(100):
+
+# Dynamic visualization function using plt.pause()
+def train(memory: Memory, dataset1: list[dict], dataset2: list[dict], epochs: int, is_recurrence: bool, visualize: bool):
+
+    if not visualize:
+        for _ in range(epochs):
+            # Simulate memory updates (Training loop here)
+            observation_id = choice([0, 1, 2])
+            choice_nr = choice([0, 1])
+            if choice_nr == 1:
+                type_i_feedback(dataset1[observation_id], memory)
+            else:
+                type_ii_feedback(dataset2[observation_id], memory)
+        return
+
+    # Setup the plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    literals = memory.get_literals()
+    x_positions = np.arange(len(literals))  # Positions for each feature on x-axis
+    y_values = [memory.get_memory()[literal] for literal in literals]  # Initial memory values
+    scatter = ax.scatter(x_positions, y_values)  # Scatter plot of feature memory values
+
+    ax.set_title('Feature Memory Values Moving Up/Down Over Epochs')
+    ax.set_xlabel('Features')
+    ax.set_ylabel('Memory Value (0-10)')
+    ax.set_ylim(0, 10)
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels(literals, rotation=45, ha='right')
+    ax.grid(True)
+
+    # Update the plot after each epoch
+    for _ in range(epochs):
+        # Simulate memory updates (Training loop here)
+        observation_id = choice([0, 1, 2])
+        choice_nr = choice([0, 1])
+        if choice_nr == 1:
+            type_i_feedback(dataset1[observation_id], memory)
+        else:
+            type_ii_feedback(dataset2[observation_id], memory)
+
+        # Update y-values with the latest memory values
+        y_values = [memory.get_memory()[literal] for literal in literals]
+        scatter.set_offsets(np.c_[x_positions, y_values])  # Update scatter plot positions
+        plt.pause(0.1)  # Pause to allow the plot to update
+
+    plt.show()
     
-    is_reccurence = choice([0,1])
-    if is_reccurence == 1:
-        observation_id = choice([0,1,2,3])
-        type_i_feedback(recurrences[observation_id], recurrence_rule_memory)
-    else:
-        observation_id = choice([0,1])
-        type_ii_feedback(non_recurrences[observation_id], recurrence_rule_memory)
+    print(memory.get_memory())
 
-for i in range(100):
-    is_reccurence = choice([0,1])
-    if is_reccurence == 1:
-        observation_id = choice([0,1])
-        type_i_feedback(non_recurrences[observation_id], non_recurrence_rule_memory)
-    else:
-        observation_id = choice([0,1,2,3])
-        type_ii_feedback(recurrences[observation_id], non_recurrence_rule_memory)
+    print()
 
+    print("IF " + " AND ".join(memory.get_condition()) + " THEN Recurrence") if is_recurrence else print("IF " + " AND ".join(memory.get_condition()) + " THEN Non-Recurrence")
 
-print(recurrence_rule_memory.get_memory())
+    print('\n----------------------------------------------------------------------------------------\n')
 
-print()
-
-print("IF " + " AND ".join(recurrence_rule_memory.get_condition()) + " THEN Reccurance")
-
-print('\n----------------------------------------------------------------------------------------\n')
-
-print(non_recurrence_rule_memory.get_memory())
-
-print()
-
-print("IF " + " AND ".join(non_recurrence_rule_memory.get_condition()) + " THEN Non-Reccurance")
-
-print()
 
 def classify(observation, recurrence_rules, non_recurrence_rules):
     vote_sum = 0
@@ -186,14 +163,31 @@ def classify(observation, recurrence_rules, non_recurrence_rules):
         return "Recurrence"
     else:
         return "Non-Recurrence"
-    
-# Classify all the patients in the recurrence and non-recurrence datasets
-print("Classifying Recurrence Dataset:")
-for i, patient in enumerate(recurrences):
-    result = classify(patient, [recurrence_rule_memory], [non_recurrence_rule_memory])
-    print(f"Patient {i + 1} in Recurrence Dataset: {result}")
 
-print("\nClassifying Non-Recurrence Dataset:")
-for i, patient in enumerate(non_recurrences):
-    result = classify(patient, [recurrence_rule_memory], [non_recurrence_rule_memory])
-    print(f"Patient {i + 1} in Non-Recurrence Dataset: {result}")
+if __name__ == "__main__":
+    #Manual classification
+    print("MANUAL CLASSIFICATION USING RULES R1, R2, and R3:")
+    manual_classify(recurrences)
+    manual_classify(non_recurrences)
+    print()
+
+    #Set up rules:
+    recurrence_rule_memory = Memory(0.8, 0.2, initial_memory.copy())
+    non_recurrence_rule_memory = Memory(0.8, 0.2, initial_memory.copy())
+
+    #Training for recurrence rule with visualization:
+    train(recurrence_rule_memory, recurrences, non_recurrences, epochs=500, is_recurrence=True, visualize=True)
+    
+    train(non_recurrence_rule_memory, non_recurrences, recurrences, epochs=500, is_recurrence=False, visualize=True)
+
+
+    #Classification using learned rule:
+    print("Classifying Recurrence Dataset:")
+    for i, patient in enumerate(recurrences):
+        result = classify(patient, [recurrence_rule_memory], [non_recurrence_rule_memory])
+        print(f"Patient {i + 1} in Recurrence Dataset: {result}")
+
+    print("\nClassifying Non-Recurrence Dataset:")
+    for i, patient in enumerate(non_recurrences):
+        result = classify(patient, [recurrence_rule_memory], [non_recurrence_rule_memory])
+        print(f"Patient {i + 1} in Non-Recurrence Dataset: {result}")
