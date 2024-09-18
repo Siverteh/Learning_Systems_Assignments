@@ -108,47 +108,92 @@ def train(memory: Memory, dataset1: list[dict], dataset2: list[dict], epochs: in
                 type_i_feedback(dataset1[observation_id], memory)
             else:
                 type_ii_feedback(dataset2[observation_id], memory)
-        return
 
-    # Setup the plot
-    fig, ax = plt.subplots(figsize=(10, 6))
-    literals = memory.get_literals()
-    x_positions = np.arange(len(literals))  # Positions for each feature on x-axis
-    y_values = [memory.get_memory()[literal] for literal in literals]  # Initial memory values
-    scatter = ax.scatter(x_positions, y_values)  # Scatter plot of feature memory values
+    else:
+        # Setup the plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        literals = memory.get_literals()
+        x_positions = np.arange(len(literals))  # Positions for each feature on x-axis
+        y_values = [memory.get_memory()[literal] for literal in literals]  # Initial memory values
+        scatter = ax.scatter(x_positions, y_values)  # Scatter plot of feature memory values
 
-    ax.set_title('Feature Memory Values Moving Up/Down Over Epochs')
-    ax.set_xlabel('Features')
-    ax.set_ylabel('Memory Value (0-10)')
-    ax.set_ylim(0, 10)
-    ax.set_xticks(x_positions)
-    ax.set_xticklabels(literals, rotation=45, ha='right')
-    ax.grid(True)
+        ax.set_title('Feature Memory Values Moving Up/Down Over Epochs')
+        ax.set_xlabel('Features')
+        ax.set_ylabel('Memory Value (0-10)')
+        ax.set_ylim(0, 10)
+        ax.set_xticks(x_positions)
+        ax.set_xticklabels(literals, rotation=45, ha='right')
+        ax.grid(True)
 
-    # Update the plot after each epoch
-    for _ in range(epochs):
-        # Simulate memory updates (Training loop here)
-        observation_id = choice([0, 1, 2])
-        choice_nr = choice([0, 1])
-        if choice_nr == 1:
-            type_i_feedback(dataset1[observation_id], memory)
-        else:
-            type_ii_feedback(dataset2[observation_id], memory)
+        # Update the plot after each epoch
+        for _ in range(epochs):
+            # Simulate memory updates (Training loop here)
+            observation_id = choice([0, 1, 2])
+            choice_nr = choice([0, 1])
+            if choice_nr == 1:
+                type_i_feedback(dataset1[observation_id], memory)
+            else:
+                type_ii_feedback(dataset2[observation_id], memory)
 
-        # Update y-values with the latest memory values
-        y_values = [memory.get_memory()[literal] for literal in literals]
-        scatter.set_offsets(np.c_[x_positions, y_values])  # Update scatter plot positions
-        plt.pause(0.1)  # Pause to allow the plot to update
+            # Update y-values with the latest memory values
+            y_values = [memory.get_memory()[literal] for literal in literals]
+            scatter.set_offsets(np.c_[x_positions, y_values])  # Update scatter plot positions
+            plt.pause(0.1)  # Pause to allow the plot to update
 
-    plt.show()
+        plt.show()
     
+    print("RECURRENCE MEMORY AFTER TRAINING:") if is_recurrence else print("NON-RECURRENCE MEMORY AFTER TRAINING:")
     print(memory.get_memory())
 
     print()
 
+    print("RECURRENCE RULE GENERATED:") if is_recurrence else print("NON-RECURRENCE RULE GENERATED:")
     print("IF " + " AND ".join(memory.get_condition()) + " THEN Recurrence") if is_recurrence else print("IF " + " AND ".join(memory.get_condition()) + " THEN Non-Recurrence")
 
-    print('\n----------------------------------------------------------------------------------------\n')
+    print()
+
+def train_multiple_runs(memory, dataset1, dataset2, epochs, num_runs=3):
+    rule_counts = {literal: 0 for literal in memory.get_literals()}
+
+    for _ in range(num_runs):
+        # Reset memory for each run
+        current_memory = Memory(memory.forget_value, memory.memorize_value, initial_memory.copy())
+        
+        for epoch in range(epochs):
+            observation_id = choice([0, 1, 2])
+            choice_nr = choice([0,1])
+            if choice_nr == 1:
+                type_i_feedback(dataset1[observation_id], current_memory)
+            else:
+                type_ii_feedback(dataset2[observation_id], current_memory)
+        
+        # Determine the general rule based on final memory values
+        for literal in current_memory.get_literals():
+            if current_memory.get_memory()[literal] >= 6:  # Use threshold of 6 to include in the rule
+                rule_counts[literal] += 1
+
+    return rule_counts
+
+# Plot the general rule using a bubble chart
+def plot_bubble_chart(general_rules, values, literals, title):
+    plt.figure(figsize=(10, 6))
+    
+    for i, value in enumerate(values):
+        x = [i] * len(literals)  # x-axis is for each combination of memorize/forget values
+        y = np.arange(len(literals))  # y-axis is for each literal (feature)
+        sizes = [general_rules[i][literal] * 100 for literal in literals]  # Size of bubbles corresponds to rule inclusion count
+        
+        plt.scatter(x, y, s=sizes, alpha=0.5, label=f'Mem: {value[1]}, Forget: {value[0]}')
+    
+    plt.xticks(range(len(values)), [f'Mem: {v[1]}, Forget: {v[0]}' for v in values], rotation=45)
+    plt.yticks(range(len(literals)), literals)
+    plt.xlabel('Memorize/Forget Values')
+    plt.ylabel('Features (Literals)')
+    plt.title(f'General Rule Formation - {title}')
+    plt.legend(loc='upper right')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
 
 def classify(observation, recurrence_rules, non_recurrence_rules):
@@ -163,31 +208,70 @@ def classify(observation, recurrence_rules, non_recurrence_rules):
         return "Recurrence"
     else:
         return "Non-Recurrence"
-
-if __name__ == "__main__":
-    #Manual classification
+    
+def run_manual_classification():
     print("MANUAL CLASSIFICATION USING RULES R1, R2, and R3:")
     manual_classify(recurrences)
     manual_classify(non_recurrences)
     print()
 
-    #Set up rules:
-    recurrence_rule_memory = Memory(0.8, 0.2, initial_memory.copy())
-    non_recurrence_rule_memory = Memory(0.8, 0.2, initial_memory.copy())
-
-    #Training for recurrence rule with visualization:
+def run_training_with_visualization(forget: float, memoize: float):
+    recurrence_rule_memory = Memory(forget, memoize, initial_memory.copy())
+    non_recurrence_rule_memory = Memory(forget, memoize, initial_memory.copy())
     train(recurrence_rule_memory, recurrences, non_recurrences, epochs=500, is_recurrence=True, visualize=True)
-    
     train(non_recurrence_rule_memory, non_recurrences, recurrences, epochs=500, is_recurrence=False, visualize=True)
 
-
-    #Classification using learned rule:
+def run_training_with_classification(forget: float, memoize: float):
+    recurrence_rule_memory = Memory(forget, memoize, initial_memory.copy())
+    non_recurrence_rule_memory = Memory(forget, memoize, initial_memory.copy())
+    train(recurrence_rule_memory, recurrences, non_recurrences, epochs=500, is_recurrence=True, visualize=False)
+    train(non_recurrence_rule_memory, non_recurrences, recurrences, epochs=500, is_recurrence=False, visualize=False)
     print("Classifying Recurrence Dataset:")
     for i, patient in enumerate(recurrences):
         result = classify(patient, [recurrence_rule_memory], [non_recurrence_rule_memory])
         print(f"Patient {i + 1} in Recurrence Dataset: {result}")
-
     print("\nClassifying Non-Recurrence Dataset:")
     for i, patient in enumerate(non_recurrences):
         result = classify(patient, [recurrence_rule_memory], [non_recurrence_rule_memory])
         print(f"Patient {i + 1} in Non-Recurrence Dataset: {result}")
+
+def run_training_with_bubble_graph():
+    values = [[0.8, 0.2], [0.5, 0.5], [0.2, 0.8]]
+
+    recurrence_general_rules = []
+    non_recurrence_general_rules = []
+
+    for value in values:
+        # Initialize memory
+        recurrence_rule_memory = Memory(value[0], value[1], initial_memory.copy())
+        non_recurrence_rule_memory = Memory(value[0], value[1], initial_memory.copy())
+        
+        # Run multiple trainings and get the general rule
+        recurrence_general_rule = train_multiple_runs(recurrence_rule_memory, recurrences, non_recurrences, epochs=100, num_runs=10)
+        non_recurrence_general_rule = train_multiple_runs(non_recurrence_rule_memory, non_recurrences, recurrences, epochs=100, num_runs=10)
+        
+        recurrence_general_rules.append(recurrence_general_rule)
+        non_recurrence_general_rules.append(non_recurrence_general_rule)
+
+    # Get the literals (features) for plotting
+    literals = recurrence_rule_memory.get_literals()
+
+    # Plot the bubble chart for recurrence rules
+    plot_bubble_chart(recurrence_general_rules, values, literals, title="Recurrence Rule Generalization")
+
+    # Plot the bubble chart for non-recurrence rules
+    plot_bubble_chart(non_recurrence_general_rules, values, literals, title="Non-Recurrence Rule Generalization")
+
+if __name__ == "__main__":
+    """MANUAL CLASSIFICATION"""
+    #run_manual_classification()
+
+    """TRAINING WITH VISUALIZATION"""
+    #run_training_with_visualization(forget=0.8, memoize=0.2)
+
+    """TRAINING WITH CLASSIFICATION"""
+    #run_training_with_classification(forget=0.8, memoize=0.2)
+    
+    """TRAINING WITH BUBBLE GRAPH"""
+    run_training_with_bubble_graph()
+    
